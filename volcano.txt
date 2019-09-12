@@ -1,0 +1,51 @@
+def visit(L,j,filename):
+    T = L.gen()
+    P.<x> = PolynomialRing(L,'x')
+    x = PolynomialRing(L,"x").gen()
+    Q.<y> = PolynomialRing(P,'y')
+    y = PolynomialRing(P,"y").gen()
+    with open(filename, 'r') as namej:
+        lst = [sage_eval(l, locals = {'x':x, 'y':y,'T':T}) for l in namej]
+    poly = lst[0]
+    f = poly(x = x, y = j)
+    return f.roots()
+
+# Uses g = T^m and delta = T^n.
+def make_graph(q,d,m,n,filename):
+    L.<T> = GF(q^d,'T')
+    T = L.gen()
+    g = L(T^m)
+    delta = L(T^n)
+    j = g^(q+1)/delta
+    edges = []
+    visited = []
+    unvisited = []
+    rts = visit(L,j,filename)
+    if rts == []:
+        G = Graph(multiedges = True, loops = True)
+        G.add_vertex(j)
+    else:
+        for w in rts:
+            visited.append(j)
+            unvisited.append(w[0])
+            if len(unvisited) > 0:
+                for u in unvisited:
+                    if u not in visited:
+                        nxt_rts = visit(L,u,filename)
+                        for w in nxt_rts:
+                            if w[1] == 1:
+                                if (u,w[0]) not in edges:
+                                    edges.append((w[0],u))
+                                else: 
+                                    pass 
+                            elif w[1] > 1:
+                                for y in range(w[1]):
+                                    edges.append((w[0],u))
+                            visited.append(u)
+                            unvisited.append(w[0])
+                            set(unvisited).difference_update(set(visited))
+                unvisited = list(unvisited)
+                if len(unvisited) == 0:
+                    break
+        G = Graph(edges, multiedges = True, loops = True)
+    return G
