@@ -1,0 +1,34 @@
+# Required input:
+# prime integer q
+# d = degree of the modulus of the finite field L
+# n = [n0, n1, ..., nk] = isogeny degree (polynomial in F_q[T])
+# DM = [g,Delta] (both g and Delta are in vector form)
+# isogeny u = [u0,u1, ..., uk] of degree n, where ui is a vector
+
+def dual_isogeny(q,d,n,DM,u):
+    L.<T> = GF(q^d, 'T')
+    k = len(n)-1
+    g = L(DM[0])
+    Delta = L(DM[1])
+    U = [0 for i in [0..k]]
+    for i in [0..k]:
+        U[i] = L(u[i])
+    if L(n) == 0:
+        return 'Exit'
+    else:
+        N = [0 for i in [0..2*k]]
+        for i in [0..2*k]:
+            if i == 0:
+                N[0] = L(n)
+            elif i != 0:
+                if i == 1:
+                    N[1] = (g*N[0]^q-N[0]*g)*(T^q-T)^-1 
+                else:
+                    N[i] = (g*N[i-1]^q-N[i-1]*g^q^(i-1)+Delta*N[i-2]^q^2-N[i-2]*Delta^q^(i-2))*(T^(q^i)-T)^-1
+        D = [0 for i in [0..k]]
+        for m in [0..k]:
+            if m == 0:
+                D[0] = N[0]*U[0]^-1
+            else:
+                D[m] = (N[m]-sum(D[i]*U[m-i]^(q^i) for i in [0..m-1]))*U[0]^-q^m
+        return D
