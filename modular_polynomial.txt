@@ -1,0 +1,164 @@
+#Compute powers of a polynomial.
+def power_coeff(q,d,poly):
+    pcoeff = []
+    po = 1
+    for e in (1..q^d+1):
+        lnth = len(poly.list())
+        po = po*poly
+        pc = po.list()
+        if len(pc)<lnth:
+            pc = (pc+[0]*lnth)[:lnth]
+        pcoeff.append(pc)
+    return pcoeff
+
+# Repeated squaring
+def rs(p,e):
+    if e == 0:
+        return 1
+    elif e !=0:
+        if e == 1:
+            return p
+        elif e > 1:
+            if is_odd(e) == True:
+                return p*rs(p*p,(e-1)/2)
+            else:
+                return rs(p*p, e/2)
+
+# Division algorithm with quotient as output, the remainder can be included as if required.            
+def quo(x,y):
+    r = x
+    qu,re = r.quo_rem(y)
+    r = re
+    return qu
+
+
+#Computes the Carlitz coefficients for a monic polynomial a.
+def carlitz(A,q,a):                         
+    ac = [0 for i in range(a.degree()+1)]
+    for i in range(a.degree()+1):   
+            if i == 0:
+                ac[i] = a
+            else:
+                ac[i] = quo(ac[i-1]^q-ac[i-1],A.0^(q^i)-A.0)
+    return ac
+
+#Compute j-invariant j(z) for a prime q with precision N.
+def comj(A,d,N):
+    q = A.base().cardinality()
+    lam = floor((log((N+2)*q+N+1,q)-1)/2)
+    sumQ = 0
+    sumS = 0
+    sumR = 0
+    for m in [0..lam]:
+        F.<s> = PowerSeriesRing(A, default_prec = N+2) 
+        Mo = [a for a in A.monics(of_degree = m)] 
+        ml = len(Mo)
+        for k in range(ml):
+            c = carlitz(A,q,Mo[k])
+            p = sum(c[i]*s^((q^m-q^i)/(q-1)) for i in range(len(c)))
+            ppo = rs(p,q-1)
+            Q = 1/ppo      
+            ppoq = rs(ppo,q)
+            S = 1/ppoq
+            ppoq1 = ppoq * ppo
+            R = 1/ppoq1
+            sumQ = sumQ + s^(q^m) * Q
+            sumS = sumS + s^(q^(m+1)) * S 
+            sumR = sumR + s^(q^(m+1)+q^m) * R
+    kj = A.0^q-A.0
+    mj = A.0^(q^2)-A.0
+    g = 1-kj*sumQ
+    gq = rs(g,q+1)
+    delta = -mj*sumR+quo(mj,kj)*sumS+sum(binomial(q+1,k)*kj^(k-1)*(-sumQ)^k for k in (1..q+1))
+    j = gq/delta
+    return  j
+
+#Compute the invariant j(\ell z) for a prime q and prime polynomial $\ell\$ in A.
+def comjl(ell,j,N):   
+    F = j.parent()
+    s = F.0
+    A = F.base()
+    q = A.base().cardinality()
+    H = carlitz(A,q,ell) 
+    h = sum(H[i]*s^((q^ell.degree()-q^i)/(q-1)) for i in range(len(H)))
+    hpo =  rs(h,q-1)
+    ihpo = 1/hpo
+    slz = s^(q^ell.degree())*ihpo 
+    jl = -(1/slz)+sum(j.list()[i]*slz^(i-1) for i in (1..floor((N+q^ell.degree())/q^ell.degree())))       
+    return jl
+
+#Compute the coefficients $c_i(u,v)$ of $X^u*Y^v$.
+def comp_c(i1,i2,u,v,Ca,Cb):    
+    if u == v:
+        if u == 0 and v == 0 and i1 == 0 and i2 == 0:
+            ciuv = 1
+        else:
+            ciuv = sum(Ca[v-1][i]*Cb[u-1][i1-i] for i in (0..i1))
+    elif u != 0 and v != 0:
+        if i1 < 0 and i2 < 0:
+            ciuv = 0
+        elif i1 >= 0 and i2 < 0:
+            ciuv = sum(Ca[v-1][i]*Cb[u-1][i1-i] for i in (0..i1))
+        elif i1 >= 0 and i2>=0:
+            ciuv = sum(Ca[v-1][i]*Cb[u-1][i1-i] for i in (0..i1))+sum(Ca[u-1][i]*Cb[v-1][i2-i] for i in (0..i2))
+    elif u != 0 and v == 0:
+        if i1 < 0 and i2 < 0:
+            ciuv = 0
+        elif i1 >= 0 and i2 < 0:
+            ciuv = Cb[u-1][i1]
+        elif i1 >= 0 and i2 >= 0:
+            ciuv = Cb[u-1][i1]+Ca[u-1][i2]
+    return ciuv
+
+#Compute the coefficients of the Drinfeld modular polynomial $\Phi_\ell(X,Y)$.
+def coeff_mp(q,vc):
+    A.<T> = PolynomialRing(GF(q),'T')
+    ell = A(vc)
+    d = ell.degree()
+    N = q^(2*d)+q^d-1                                        
+    j = comj(A,d,N)
+    jl = comjl(ell,j,N)
+    Ca = power_coeff(q,d,j)
+    Cb = power_coeff(q,d,jl)
+    M = (q^d+1)*(q^d+2)/2                                     
+    W = [(u,v) for u in (0..q^d) for v in (0..u)]
+    V = [(k,m) for k in (0..q^d) for m in (k..q^d)]
+    I = [q^d*k+m for (k,m) in V]
+    Inda = [I[i]-q^(2*d)+1 for i in range(M)]                      
+    Ba = [0 if Inda[i]<0 else Ca[-1][Inda[i]] for i in range(M)]   
+    Bb = [Cb[-1][i] for i in I]                          
+    mB = [[0 for b in range(1)] for i in range(M)]     
+    for i in range(M):                                
+        mB[i][0] = -(Bb[i]+Ba[i]) 
+    B = matrix(A,mB)        
+    W.reverse()
+    aD = [[0 for m in range(M)] for n in range(M)]               
+    for m in (0..M-1):                #m-row, n-column        
+        for n in (0..M-1):                 
+            u = W[n][0]
+            v = W[n][1]
+            i1 = I[m]-q^(2*d)-q^d+u*q^d+v
+            i2 = I[m]-q^(2*d)-q^d+v*q^d+u
+            aD[m][n] = comp_c(i1,i2,u,v,Ca,Cb)  
+    D = Matrix(A, aD)
+    aX = [[0 for n in range(1)] for m in range(M)]                      
+    for m in range(M):                                                    
+        aX[0][0] = B[0,0]/D[0,0]
+        aX[m][0] = (B[m,0]-sum(D[m,n]*aX[n][0] for n in (0..M-2)))/D[m,m]
+    X = matrix(A,aX)
+    return X
+    
+# Create the modular polynomial
+def mod_pol(q,vc):
+    d = len(vc)-1
+    X = coeff_mp(q,vc)
+    Mx = X.parent()
+    dim = Mx.dimension()
+    A = Mx.base_ring()
+    CMP = [X[m][0] for m in range(dim)]
+    CMP.reverse()
+    P.<x,y> = PolynomialRing(A)
+    sxy = [x^u*y^v+x^v*y^u if u != v else x^u*y^v for u in (0..q^d) for v in (0..u)]
+    poly = x^(q^d+1)+y^(q^d+1)+sum([a*b for (a,b) in zip(CMP,sxy)])           
+    return  poly
+    
