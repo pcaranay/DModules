@@ -1,0 +1,55 @@
+# q = a prime power odd integer
+# d = degree of the modulus of the finite field L
+# n = ell-adic valuation of the Frobenius conductor (n is greater than or equal to 1)
+# filename = filename of the ell-th Drinfeld modular polynomial
+# DM = [g, Delta] an ordinary Drinfel module over L (g, Delta in L and Delta != 0)
+
+import random
+
+def visit(L,j,filename):
+    T = L.gen()
+    P.<x> = PolynomialRing(L, 'x')
+    Q.<y> = PolynomialRing(P,'y')
+    with open(filename, 'r') as name:
+        lst = [sage_eval(l, locals ={'x':x, 'y':y, 'T':T}) for l in name]
+    poly = lst[0]
+    f = poly(x = x, y = j)
+    roots = [f.roots()[i][0] for i in [0..len(f.roots())-1]]
+    return roots
+
+def build_path(j,root,n,L,filename):
+    path = []
+    path.append(j)
+    path.append(root)
+    l = 1
+    while l < n+1:
+        rts0 = visit(L,path[l],filename)
+        rts0.remove(path[l-1])
+        if rts0 == []: 
+            return path
+            break
+        else:
+            rand = random.choice(rts0)
+            path.append(rand)
+            l += 1
+            path[l] = rand
+    return path
+    
+
+def l_adic(q,d,n,filename,DM):
+    L.<T> = GF(q^d, 'T')
+    g = L(DM[0])
+    Delta = L(DM[1])
+    j = g^(q+1)/Delta
+    R = visit(L,j,filename)
+    if len(R) == 1:
+        return n
+    P = [R[0], R[1], R[2]]
+    W = [0 for i in [0..2]]
+    for i in [0..2]:
+        W[i] = build_path(j,P[i],n,L,filename)
+    print W
+    path_length = [len(W[i])-1 for i in [0..2]]
+    m = min(path_length)
+    return n-m
+    
