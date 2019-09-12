@@ -1,0 +1,66 @@
+
+def rs(p,e):
+    if e == 0:
+        return 1
+    elif e !=0:
+        if e == 1:
+            return p
+        elif e > 1:
+            if is_odd(e) == True:
+                return p*rs(p*p,(e-1)/2)
+            else:
+                return rs(p*p, e/2)
+
+# Division algorithm with quotient as output, the remainder can be included if required.            
+def quo(x,y):
+    r = x
+    qu,re = r.quo_rem(y)
+    r = re
+    return qu
+
+
+def carlitz(A,q,a):                         
+    ac = [0 for i in range(a.degree()+1)]
+    for i in range(a.degree()+1):   
+            if i == 0:
+                ac[i] = a
+            else:
+                ac[i] = quo(ac[i-1]^q-ac[i-1],A.0^(q^i)-A.0)
+    return ac
+
+
+# Compute j-invariant to precision N.
+# q = prime integer
+# d = positive integer
+
+def j_fcn(q,d):
+    A.<T> = PolynomialRing(GF(q))
+    N = q^(2*d)+q^d-1
+    lam = floor((log((N+2)*q+N+1,q)-1)/2)
+    q = A.base().cardinality()
+    sumQ = 0
+    sumS = 0
+    sumR = 0
+    for m in [0..lam]:
+        F.<s> = PowerSeriesRing(A, default_prec = N+2) 
+        Mo = [a for a in A.monics(of_degree = m)] 
+        ml = len(Mo)
+        for k in range(ml):
+            c = carlitz(A,q,Mo[k])
+            p = sum(c[i]*s^((q^m-q^i)/(q-1)) for i in range(len(c)))
+            ppo = rs(p,q-1)
+            Q = 1/ppo      
+            ppoq = rs(ppo,q)
+            S = 1/ppoq
+            ppoq1 = ppoq * ppo
+            R = 1/ppoq1
+            sumQ = sumQ + s^(q^m) * Q
+            sumS = sumS + s^(q^(m+1)) * S 
+            sumR = sumR + s^(q^(m+1)+q^m) * R
+    kj = A.0^q-A.0
+    mj = A.0^(q^2)-A.0
+    g = 1-kj*sumQ
+    gq = rs(g,q+1)
+    delta = -mj*sumR+quo(mj,kj)*sumS+sum(binomial(q+1,k)*kj^(k-1)*(-sumQ)^k for k in (1..q+1))
+    j = gq/delta
+    return  j
